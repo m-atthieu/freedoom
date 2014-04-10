@@ -1,4 +1,5 @@
-# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
+#               2010, 2011, 2013, 2014
 # Contributors to the Freedoom project.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,57 +27,46 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+VERSION=$(shell git describe 2>/dev/null || cat VERSION)
 WADS=wads
 CPP=scripts/simplecpp
 DEUTEX=deutex
 DEUTEX_BASIC_ARGS=-v0 -fullsnd -rate accept -rgb 0 255 255
 DEUTEX_ARGS=$(DEUTEX_BASIC_ARGS) -doom2 bootstrap/
 
-OBJS = \
-	$(WADS)/freedoom.wad          \
-	$(WADS)/freedoom_levels.wad   \
-	$(WADS)/freedoom_sprites.wad  \
-	$(WADS)/freedoom_sounds.wad   \
-	$(WADS)/freedoom_textures.wad \
-	$(WADS)/doom2.wad             \
-	$(WADS)/doom.wad	      \
-	$(WADS)/freedm.wad
+FREEDOOM1=$(WADS)/freedoom1.wad
+FREEDOOM2=$(WADS)/freedoom2.wad
+FREEDM=$(WADS)/freedm.wad
 
-all : $(OBJS)
+OBJS=$(FREEDM) $(FREEDOOM1) $(FREEDOOM2)
+
+all: $(OBJS)
 
 subdirs:
-	make -C graphics/titlepic
-	make -C lumps
+	$(MAKE) -C graphics/text
+	$(MAKE) VERSION=$(VERSION) -C graphics/titlepic
+	$(MAKE) -C lumps/cph/misc-lumps
+	$(MAKE) -C lumps/genmidi
+	$(MAKE) -C lumps/dmxgus
+	$(MAKE) -C lumps/textures
+
 
 # this is a useless dependency to force builds
 
 force:
 
-# build texture1.txt for different builds
-
-textures/doom2/texture1.txt: textures/combined.txt
-	$(CPP) -DDOOM1 -DDOOM2 < $< > $@
-textures/doom/texture1.txt: textures/combined.txt
-	$(CPP) -DDOOM1 -DULTDOOM < $< > $@
-textures/freedm/texture1.txt: textures/combined.txt
-	$(CPP) -DFREEDM < $< > $@
-
-textures/doom/pnames.txt: textures/doom/texture1.txt
-	scripts/extract-pnames.py -a > $@
-textures/doom2/pnames.txt: textures/doom2/texture1.txt 
-	scripts/extract-pnames.py -a > $@
-textures/freedm/pnames.txt: textures/freedm/texture1.txt
-	scripts/extract-pnames.py -a > $@
+lumps/freedoom.lmp lumps/freedm.lmp: force
+	echo $(VERSION) > $@
 
 # update wadinfo.txt
 
-wadinfo.txt: buildcfg.txt force textures/doom2/pnames.txt
+wadinfo.txt: buildcfg.txt subdirs lumps/freedoom.lmp
 	$(CPP) -P -DDOOM2 < $< | scripts/wadinfo-builder.py > $@
-wadinfo_iwad.txt: buildcfg.txt force textures/doom2/pnames.txt
-	$(CPP) -P -DDOOM2 < $< | scripts/wadinfo-builder.py -dummy > $@
-wadinfo_ult.txt: buildcfg.txt force textures/doom/pnames.txt
+wadinfo_phase1.txt: buildcfg.txt subdirs lumps/freedoom.lmp
 	$(CPP) -P -DDOOM1 -DULTDOOM < $< | scripts/wadinfo-builder.py -dummy > $@
-wadinfo_freedm.txt : buildcfg.txt force textures/freedm/pnames.txt
+wadinfo_phase2.txt: buildcfg.txt subdirs lumps/freedoom.lmp
+	$(CPP) -P -DDOOM2 < $< | scripts/wadinfo-builder.py -dummy > $@
+wadinfo_freedm.txt : buildcfg.txt subdirs lumps/freedoom.lmp lumps/freedm.lmp
 	$(CPP) -P -DFREEDM < $< | scripts/wadinfo-builder.py -dummy > $@
 
 %.wad.gz: %.wad
@@ -90,89 +80,52 @@ wadinfo_freedm.txt : buildcfg.txt force textures/freedm/pnames.txt
 # to whichever wad we are working on
 
 #---------------------------------------------------------
-# build wad
-
-$(WADS)/freedoom.wad: wadinfo.txt subdirs force 
-	ln -sf doom2/texture1.txt textures/texture1.txt
-	rm -f $@
-	$(DEUTEX) $(DEUTEX_ARGS) -textures -lumps -patch -flats -sounds -musics -graphics -sprites -build wadinfo.txt $@
-
-#---------------------------------------------------------
 # freedm iwad
 
-$(WADS)/freedm.wad: wadinfo_freedm.txt subdirs force 
-	ln -sf freedm/texture1.txt textures/texture1.txt
+$(FREEDM): wadinfo_freedm.txt subdirs
+	@mkdir -p $(WADS)
 	rm -f $@
 	$(DEUTEX) $(DEUTEX_ARGS) -iwad -build wadinfo_freedm.txt $@
 
 #---------------------------------------------------------
-# iwad
+# phase 1 (udoom) iwad
 
-$(WADS)/doom2.wad: wadinfo_iwad.txt subdirs force 
-	ln -sf doom2/texture1.txt textures/texture1.txt
+$(FREEDOOM1): wadinfo_phase1.txt subdirs
+	@mkdir -p $(WADS)
 	rm -f $@
-	$(DEUTEX) $(DEUTEX_ARGS) -iwad -textures -lumps -patch -flats -sounds -musics -graphics -sprites -levels -build wadinfo_iwad.txt $@
+	$(DEUTEX) $(DEUTEX_ARGS) -iwad -lumps -patch -flats -sounds -musics -graphics -sprites -levels -build wadinfo_phase1.txt $@
 
 #---------------------------------------------------------
-# udoom iwad
+# phase 2 (doom2) iwad
 
-$(WADS)/doom.wad: wadinfo_ult.txt subdirs force
-	ln -sf doom/texture1.txt textures/texture1.txt
+$(FREEDOOM2): wadinfo_phase2.txt subdirs
+	@mkdir -p $(WADS)
 	rm -f $@
-	$(DEUTEX) $(DEUTEX_ARGS) -iwad -textures -lumps -patch -flats -sounds -musics -graphics -sprites -levels -build wadinfo_ult.txt $@
+	$(DEUTEX) $(DEUTEX_ARGS) -iwad -lumps -patch -flats -sounds -musics -graphics -sprites -levels -build wadinfo_phase2.txt $@
 
-#---------------------------------------------------------
-# build levels wad
+doc: BUILD-SYSTEM.asc README.asc
+	asciidoc BUILD-SYSTEM.asc
+	asciidoc README.asc
 
-$(WADS)/freedoom_levels.wad : wadinfo.txt force 
-	rm -f $@
-	$(DEUTEX) $(DEUTEX_ARGS) -levels -build wadinfo.txt $@
+DISTDOCS=COPYING CREDITS README.html
 
-#---------------------------------------------------------
-# build texture wad
-
-$(WADS)/freedoom_textures.wad : wadinfo.txt force 
-	ln -sf doom2/texture1.txt textures/texture1.txt
-	rm -f $@
-	$(DEUTEX) $(DEUTEX_ARGS) -textures -patch -flats -build wadinfo.txt $@
-
-#---------------------------------------------------------
-# build sprites wad
-
-$(WADS)/freedoom_sprites.wad : wadinfo.txt force 
-	rm -f $@
-	$(DEUTEX) $(DEUTEX_ARGS) -sprites -build wadinfo.txt $@
-
-#---------------------------------------------------------
-# build sounds wad
-
-$(WADS)/freedoom_sounds.wad : wadinfo.txt force 
-	rm -f $@
-	$(DEUTEX) $(DEUTEX_ARGS) -sounds -musics -build wadinfo.txt $@
-
-
-
-dist : $(OBJS)
-	scripts/makepkgs $(OBJS)
-
-doc:
-	asciidoc BUILD-SYSTEM
-	asciidoc README
+# Due to convoluted reasons, the WADs must directly proceed the game name.
+dist: $(OBJS) doc
+	VERSION=$(VERSION) scripts/makepkgs freedm $(FREEDM) $(DISTDOCS)
+	VERSION=$(VERSION) scripts/makepkgs freedoom $(FREEDOOM1) $(FREEDOOM2) $(DISTDOCS)
 
 clean:
 	rm -f	*.html deutex.log $(OBJS) \
-		./wadinfo.txt ./wadinfo_sw.txt \
-		./wadinfo_freedm.txt ./wadinfo_iwad.txt \
-		./wadinfo_ult.txt \
+		./wadinfo.txt ./wadinfo_phase1.txt \
+		./wadinfo_phase2.txt ./wadinfo_freedm.txt \
 		./lumps/freedoom.lmp \
-		./lumps/freedm.lmp \
-		./textures/doom/pnames.txt \
-		./textures/doom/texture1.txt \
-		./textures/doom2/pnames.txt \
-		./textures/doom2/texture1.txt \
-		./textures/freedm/pnames.txt \
-		./textures/freedm/texture1.txt \
-		./textures/texture1.txt
+		./lumps/freedm.lmp
+	-rmdir $(WADS)
 
-	make -C lumps clean
-	make -C graphics/titlepic clean
+	$(MAKE) -C graphics/text clean
+	$(MAKE) -C graphics/titlepic clean
+	$(MAKE) -C lumps/cph/misc-lumps clean
+	$(MAKE) -C lumps/genmidi clean
+	$(MAKE) -C lumps/dmxgus clean
+	$(MAKE) -C lumps/textures clean
+

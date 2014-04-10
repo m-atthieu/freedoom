@@ -563,7 +563,7 @@ D: Levels
 F: ghostlydeath
 E: ghostlydeath@gmail.com
 S: GhostlyDeath
-D: Musics
+D: Musics, PC Speaker sounds
 
 F: themistercat
 N: Mark McGill-Smith
@@ -646,10 +646,6 @@ S: Mechadon
 E: mekaddonn@gmail.com
 D: levels
 
-F: skib
-S: skib
-D: levels
-
 F: nivha
 S: nivha
 D: levels
@@ -680,3 +676,16 @@ D: genmidi instruments
 F: baronofstuff
 S: BaronOfStuff
 D: sprites
+
+F: paar
+N: Josef Šustek
+S: Paar
+E: sustek.josef@gmail.com
+D: levels
+
+F: deathz0r
+N: Dean Joseph
+S: deathz0r
+E: deathz0r@unidoom.org
+D: levels
+
